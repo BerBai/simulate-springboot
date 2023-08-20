@@ -1,14 +1,8 @@
 package com.ber.springboot;
 
-import org.apache.catalina.*;
-import org.apache.catalina.connector.Connector;
-import org.apache.catalina.core.StandardContext;
-import org.apache.catalina.core.StandardEngine;
-import org.apache.catalina.core.StandardHost;
-import org.apache.catalina.startup.Tomcat;
-import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
-import org.springframework.web.servlet.DispatcherServlet;
+
+import java.util.Map;
 
 /**
  * @Author 鳄鱼儿
@@ -24,47 +18,25 @@ public class BerSpringApplication {
         applicationContext.register(clazz);
         applicationContext.refresh();
 
-        // 2. 创建并启动Tomcat
-        startTomcat(applicationContext);
+        // 2. 获取特定WebServer类型的Bean
+        WebServer webServer = getWebServer(applicationContext);
+        // 3. 调用start方法
+        webServer.start(applicationContext);
+
     }
 
-    private static void startTomcat(WebApplicationContext applicationContext) {
-        // 2.1 创建tomcat对象
-        Tomcat tomcat = new Tomcat();
+    private static WebServer getWebServer(AnnotationConfigWebApplicationContext applicationContext) {
+        // key为beanName, value为Bean对象
+        Map<String, WebServer> webServers = applicationContext.getBeansOfType(WebServer.class);
 
-        Server server = tomcat.getServer();
-        Service service = server.findService("Tomcat");
-
-        Connector connector = new Connector();
-        // 设置默认tomcat启动端口
-        connector.setPort(8023);
-
-        Engine engine = new StandardEngine();
-        engine.setDefaultHost("localhost");
-
-        Host host = new StandardHost();
-        host.setName("localhost");
-
-        String contextPath = "";
-        Context context = new StandardContext();
-        context.setPath(contextPath);
-        context.addLifecycleListener(new Tomcat.FixContextListener());
-
-        host.addChild(context);
-        engine.addChild(host);
-
-        service.setContainer(engine);
-        service.addConnector(connector);
-
-        // 2.2 创建DispatcherServlet对象，并与Spring容器绑定，并将DispatcherServlet对象添加至Tomcat中
-        tomcat.addServlet(contextPath, "dispatcher", new DispatcherServlet(applicationContext));
-        context.addServletMappingDecoded("/*", "dispatcher");
-
-        // 2.3 启动tomcat
-        try {
-            tomcat.start();
-        } catch (LifecycleException e) {
-            e.printStackTrace();
+        if (webServers.isEmpty()) {
+            throw new NullPointerException();
         }
+
+        if (webServers.size() > 1) {
+            throw new IllegalStateException();
+        }
+
+        return webServers.values().stream().findFirst().get();
     }
 }
